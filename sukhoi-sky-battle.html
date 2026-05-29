@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Sukhoi Sky Battle — Воздушный бой</title>
+<style>
+  :root{
+    --accent:#37e0ff;
+    --accent2:#ff5a3c;
+    --panel:rgba(8,16,28,.82);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#04070f;font-family:"Segoe UI",Roboto,system-ui,Arial,sans-serif;color:#e8f3ff;}
+  #game{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:crosshair;}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    background:radial-gradient(circle at 50% 30%,rgba(20,40,70,.55),rgba(2,4,10,.92));backdrop-filter:blur(3px);z-index:20;text-align:center;
+    padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .hidden{display:none !important;}
+  h1{font-size:clamp(28px,6vw,58px);margin:0 0 4px;letter-spacing:2px;
+     background:linear-gradient(90deg,#7fdcff,#ffffff,#ff8a5c);-webkit-background-clip:text;background-clip:text;color:transparent;
+     text-shadow:0 0 24px rgba(55,224,255,.25);font-weight:800;}
+  .sub{opacity:.8;margin:0 0 18px;font-size:clamp(13px,2.4vw,17px);}
+  .planes{display:flex;flex-wrap:wrap;gap:clamp(7px,1.6vw,12px);justify-content:center;max-width:900px;margin-bottom:18px;}
+  .pcard{width:clamp(96px,27vw,140px);background:var(--panel);border:1px solid rgba(120,180,230,.18);border-radius:14px;padding:10px 8px;cursor:pointer;
+    transition:.18s transform,.18s border-color,.18s box-shadow;}
+  .pcard:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 8px 30px rgba(55,224,255,.25);}
+  .pcard.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 8px 30px rgba(55,224,255,.35);}
+  .pcard svg{width:100%;height:clamp(54px,15vw,78px);display:block;}
+  .pname{font-weight:700;font-size:clamp(12px,2.6vw,14px);margin-top:6px;}
+  .pstat{font-size:clamp(10px,2.1vw,11px);opacity:.7;line-height:1.4;margin-top:3px;}
+  .btn{font-size:18px;font-weight:700;letter-spacing:1px;padding:13px 34px;border-radius:40px;border:none;cursor:pointer;
+    background:linear-gradient(90deg,#28c8ff,#1f7bff);color:#06121f;box-shadow:0 8px 26px rgba(40,200,255,.4);transition:.15s transform;}
+  .btn:hover{transform:scale(1.05);}
+  .help{margin-top:16px;font-size:13px;opacity:.72;line-height:1.7;max-width:560px;}
+  kbd{background:#13243c;border:1px solid #2c4a70;border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:12px;}
+  #hud{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));z-index:10;font-weight:700;text-shadow:0 2px 8px #000;pointer-events:none;}
+  #hud .row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:clamp(13px,3.4vw,15px);}
+  .bar{width:clamp(120px,38vw,170px);height:clamp(11px,3vw,13px);border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;border:1px solid rgba(255,255,255,.18);}
+  .bar>i{display:block;height:100%;width:100%;transition:width .15s;}
+  #hpfill{background:linear-gradient(90deg,#ff6a3d,#ffd84d);}
+  #boostfill{background:linear-gradient(90deg,#37e0ff,#7affd8);}
+  #topright{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));z-index:10;text-align:right;text-shadow:0 2px 8px #000;font-weight:700;pointer-events:none;}
+  #score{font-size:clamp(20px,6vw,26px);color:#ffe66b;}
+  #wave{font-size:clamp(12px,3.2vw,14px);opacity:.85;}
+  #soundtoggle{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:11;background:var(--panel);border:1px solid rgba(120,180,230,.25);
+    color:#cfe8ff;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:13px;}
+  #mobile{position:fixed;inset:0;z-index:9;pointer-events:none;}
+  #mobile .zone{position:absolute;pointer-events:auto;touch-action:none;}
+  #padzone{left:0;top:0;width:48%;height:100%;}
+  .stick{position:absolute;width:clamp(110px,32vmin,160px);height:clamp(110px,32vmin,160px);border-radius:50%;
+    border:2px solid rgba(255,255,255,.22);background:radial-gradient(circle,rgba(120,200,255,.10),rgba(255,255,255,.04));
+    transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .12s;}
+  .stick.on{opacity:1;}
+  .stick i{position:absolute;left:50%;top:50%;width:42%;height:42%;transform:translate(-50%,-50%);border-radius:50%;
+    background:radial-gradient(circle at 38% 32%,#d6f1ff,#3aa0e0);box-shadow:0 0 16px rgba(120,200,255,.6);}
+  .fbtn{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.28);font-weight:800;color:#06121f;
+    display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;text-shadow:0 1px 2px rgba(0,0,0,.25);
+    box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .07s,filter .07s;}
+  .fbtn.press{transform:scale(.9);filter:brightness(1.3);}
+  #fire{right:max(5vmin,env(safe-area-inset-right));bottom:calc(19vmin + env(safe-area-inset-bottom));width:clamp(76px,20vmin,104px);height:clamp(76px,20vmin,104px);
+    background:radial-gradient(circle at 38% 30%,#fff0a8,#ffae3a,#ff7a2e);font-size:clamp(12px,3.2vmin,16px);}
+  #rocket{right:calc(24vmin + env(safe-area-inset-right));bottom:calc(7vmin + env(safe-area-inset-bottom));width:clamp(64px,17vmin,88px);height:clamp(64px,17vmin,88px);
+    background:radial-gradient(circle at 38% 30%,#ffb59c,#ff6a4d,#d23120);font-size:clamp(10px,2.7vmin,13px);color:#fff;}
+  #boost{right:max(6vmin,env(safe-area-inset-right));bottom:calc(40vmin + env(safe-area-inset-bottom));width:clamp(56px,14vmin,72px);height:clamp(56px,14vmin,72px);
+    background:radial-gradient(circle at 38% 30%,#c9f7ff,#37e0ff,#1f8fd0);font-size:clamp(10px,2.5vmin,13px);}
+  #rotateHint{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:30;display:none;
+    background:rgba(8,16,28,.9);border:1px solid rgba(120,180,230,.3);border-radius:10px;padding:7px 14px;font-size:12px;color:#cfe8ff;pointer-events:none;}
+  @media (orientation:portrait){ body.touch.playing #rotateHint{display:block;} }
+  #gameover h1{background:linear-gradient(90deg,#ff8a5c,#ffd84d);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .credit{position:fixed;bottom:max(10px,env(safe-area-inset-bottom));left:14px;z-index:8;font-size:11px;opacity:.4;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="row">❤ <div class="bar"><i id="hpfill"></i></div></div>
+  <div class="row">⚡ <div class="bar"><i id="boostfill"></i></div></div>
+  <div class="row" style="font-size:13px;opacity:.85">🚀 Ракеты: <span id="ammo">6</span></div>
+</div>
+<div id="topright" class="hidden">
+  <div id="score">0</div>
+  <div id="wave">Волна 1</div>
+</div>
+<button id="soundtoggle" class="hidden">🔊 Звук: вкл</button>
+
+<div id="mobile" class="hidden">
+  <div class="zone" id="padzone"></div>
+  <div class="stick" id="pad"><i></i></div>
+  <div class="fbtn" id="boost">ФОРС</div>
+  <div class="fbtn" id="fire">ОГОНЬ</div>
+  <div class="fbtn" id="rocket">РАКЕТА</div>
+</div>
+<div id="rotateHint">↻ Поверни телефон горизонтально</div>
+
+<!-- START MENU -->
+<div class="overlay" id="menu">
+  <h1>SUKHOI SKY BATTLE</h1>
+  <p class="sub">Выбери истребитель и в небо ✈</p>
+  <div class="planes" id="planeList"></div>
+  <button class="btn" id="startBtn">В БОЙ ▶</button>
+  <div class="help">
+    Управление: <kbd>W</kbd>/<kbd>↑</kbd> тяга, <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> поворот,
+    <kbd>S</kbd> тормоз, <kbd>Shift</kbd> форсаж · <kbd>Пробел</kbd> пушка · <kbd>F</kbd> ракета.
+    Мышь — поворот к курсору, ЛКМ — огонь.<br>
+    📱 На телефоне: коснись левой части экрана — появится джойстик движения,
+    справа кнопки <b>ОГОНЬ</b>, <b>РАКЕТА</b>, <b>ФОРС</b>. Лучше играть в горизонтальной ориентации.
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="overlay hidden" id="gameover">
+  <h1>СБИТ</h1>
+  <p class="sub" id="goText">Счёт: 0</p>
+  <button class="btn" id="againBtn">ЕЩЁ РАЗ ▶</button>
+</div>
+
+<div class="credit">Sukhoi Sky Battle — один HTML файл · SVG модели · WebAudio</div>
+
+<script>
+/* =========================================================================
+   SUKHOI SKY BATTLE  —  всё в одном HTML файле
+   SVG-модели самолётов, поворотные воздушные следы, дым+огонь ракет,
+   SVG пули/ракеты, синтезированные звуки (WebAudio).
+   ========================================================================= */
+
+/* ---------- 1. SVG МОДЕЛИ САМОЛЁТОВ (вид сверху, нос вверх) ---------- */
+/* Каждая модель — функция, возвращающая SVG разметку. Цветовые схемы и
+   формы уникальны для каждого самолёта. */
+
+function jetSVG({id, body, body2, glass, accent, type}){
+  // type: 'flanker' (Су-27/35/30), 'felon'(Су-57), 'fencer'(Су-24),
+  //       'checkmate'(Су-75), 'fullback'(Су-34), 'fulcrum'(МиГ-29), 'foxhound'(МиГ-31)
+  const defs = `
+    <defs>
+      <linearGradient id="bd${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="${shade(body,-38)}"/>
+        <stop offset=".26" stop-color="${shade(body,6)}"/>
+        <stop offset=".46" stop-color="${shade(body,26)}"/>
+        <stop offset=".6" stop-color="${body}"/>
+        <stop offset="1" stop-color="${shade(body,-46)}"/>
+      </linearGradient>
+      <linearGradient id="bd2${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="${shade(body2,-32)}"/>
+        <stop offset=".42" stop-color="${shade(body2,16)}"/>
+        <stop offset=".52" stop-color="${body2}"/>
+        <stop offset="1" stop-color="${shade(body2,-46)}"/>
+      </linearGradient>
+      <radialGradient id="gl${id}" cx=".36" cy=".24" r=".96">
+        <stop offset="0" stop-color="#ffffff"/>
+        <stop offset=".2" stop-color="#e2faff"/>
+        <stop offset=".58" stop-color="${glass}"/>
+        <stop offset="1" stop-color="${shade(glass,-58)}"/>
+      </radialGradient>
+      <radialGradient id="ex${id}" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#ffffff"/>
+        <stop offset=".24" stop-color="#fff0b0"/>
+        <stop offset=".55" stop-color="#ffae3a"/>
+        <stop offset="1" stop-color="rgba(255,90,40,0)"/>
+      </radialGradient>
+      <linearGradient id="pl${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(255,255,255,.28)"/>
+        <stop offset=".5" stop-color="rgba(255,255,255,0)"/>
+        <stop offset="1" stop-color="rgba(0,0,0,.18)"/>
+      </linearGradient>
+      <filter id="ds${id}" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="1.1" flood-color="${shade(body,-70)}" flood-opacity=".7"/>
+      </filter>
+    </defs>`;
+  let shape='';
+  if(type==='felon'){ // Су-57 — угловатый стелс, два киля, два двигателя
+    shape=`
+      <polygon points="50,4 56,30 70,58 64,92 36,92 30,58 44,30" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="50,4 53,40 47,40" fill="${shade(body,18)}"/>
+      <polygon points="44,40 8,78 18,82 47,62" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="56,40 92,78 82,82 53,62" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="42,86 30,108 38,104 47,90" fill="${shade(body,-15)}"/>
+      <polygon points="58,86 70,108 62,104 53,90" fill="${shade(body,-15)}"/>
+      <rect x="37" y="86" width="9" height="20" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="54" y="86" width="9" height="20" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="41.5" cy="104" rx="4" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="58.5" cy="104" rx="4" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="50" cy="34" rx="6.5" ry="13" fill="url(#gl${id})"/>
+      <line x1="50" y1="4" x2="50" y2="92" stroke="${accent}" stroke-width="1" opacity=".5"/>`;
+  } else if(type==='fencer'){ // Су-24 — изменяемая стреловидность, рядом 2 места
+    shape=`
+      <polygon points="50,6 58,40 58,78 42,78 42,40" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="42,46 6,70 6,80 42,68" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="58,46 94,70 94,80 58,68" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="44,78 40,104 47,100 50,82" fill="${shade(body,-20)}"/>
+      <polygon points="56,78 60,104 53,100 50,82" fill="${shade(body,-20)}"/>
+      <polygon points="48,80 50,108 52,80" fill="${shade(body,12)}"/>
+      <rect x="42" y="80" width="7" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="51" y="80" width="7" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="45.5" cy="100" rx="3.5" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="54.5" cy="100" rx="3.5" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="46" cy="34" rx="3.6" ry="7" fill="url(#gl${id})"/>
+      <ellipse cx="54" cy="34" rx="3.6" ry="7" fill="url(#gl${id})"/>`;
+  } else if(type==='checkmate'){ // Су-75 — одномоторный лёгкий стелс, V-хвост
+    shape=`
+      <polygon points="50,4 57,34 60,80 40,80 43,34" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="50,4 52,46 48,46" fill="${shade(body,18)}"/>
+      <polygon points="43,44 10,80 20,82 46,64" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="57,44 90,80 80,82 54,64" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="45,76 33,100 41,98 48,82" fill="${shade(body,-15)}"/>
+      <polygon points="55,76 67,100 59,98 52,82" fill="${shade(body,-15)}"/>
+      <rect x="45" y="78" width="10" height="22" rx="3" fill="${shade(body,-30)}"/>
+      <ellipse cx="50" cy="100" rx="4.5" ry="7" fill="url(#ex${id})"/>
+      <ellipse cx="50" cy="32" rx="6" ry="12" fill="url(#gl${id})"/>`;
+  } else if(type==='fullback'){ // Су-34 — «утконос», рядом 2 места, широкий
+    shape=`
+      <polygon points="50,8 50,8 62,28 62,80 38,80 38,28" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <ellipse cx="50" cy="16" rx="11" ry="10" fill="url(#bd${id})" stroke="${shade(body,-55)}"/>
+      <polygon points="38,48 4,74 4,82 38,70" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="62,48 96,74 96,82 62,70" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="40,80 34,104 42,100 47,84" fill="${shade(body,-20)}"/>
+      <polygon points="60,80 66,104 58,100 53,84" fill="${shade(body,-20)}"/>
+      <rect x="40" y="80" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="51" y="80" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="44.5" cy="100" rx="4" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="55.5" cy="100" rx="4" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="45.5" cy="15" rx="4" ry="6" fill="url(#gl${id})"/>
+      <ellipse cx="54.5" cy="15" rx="4" ry="6" fill="url(#gl${id})"/>`;
+  } else if(type==='fulcrum'){ // МиГ-29 — два киля, аккуратный
+    shape=`
+      <polygon points="50,6 56,32 62,74 38,74 44,32" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="44,44 12,72 20,76 46,60" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="56,44 88,72 80,76 54,60" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="42,72 32,98 40,95 47,78" fill="${shade(body,-18)}"/>
+      <polygon points="58,72 68,98 60,95 53,78" fill="${shade(body,-18)}"/>
+      <rect x="40" y="74" width="8" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="52" y="74" width="8" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="44" cy="96" rx="3.6" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="56" cy="96" rx="3.6" ry="6" fill="url(#ex${id})"/>
+      <ellipse cx="50" cy="30" rx="5.4" ry="11" fill="url(#gl${id})"/>`;
+  } else if(type==='foxhound'){ // МиГ-31 — большой перехватчик
+    shape=`
+      <polygon points="50,4 56,30 60,82 40,82 44,30" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="44,40 8,66 8,76 44,62" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="56,40 92,66 92,76 56,62" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="42,82 34,106 42,102 48,86" fill="${shade(body,-18)}"/>
+      <polygon points="58,82 66,106 58,102 52,86" fill="${shade(body,-18)}"/>
+      <rect x="40" y="82" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="51" y="82" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="44.5" cy="102" rx="4" ry="6.5" fill="url(#ex${id})"/>
+      <ellipse cx="55.5" cy="102" rx="4" ry="6.5" fill="url(#ex${id})"/>
+      <ellipse cx="50" cy="30" rx="5.6" ry="11" fill="url(#gl${id})"/>`;
+  } else { // flanker  Су-27 / Су-35 / Су-30 — классический «Фланкер»
+    shape=`
+      <polygon points="50,4 57,30 63,76 37,76 43,30" fill="url(#bd${id})" stroke="${shade(body,-55)}" stroke-width="1"/>
+      <polygon points="50,4 53,42 47,42" fill="${shade(body,16)}"/>
+      <polygon points="43,42 8,74 18,78 46,60" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="57,42 92,74 82,78 54,60" fill="url(#bd2${id})" stroke="${shade(body2,-50)}" stroke-width="1"/>
+      <polygon points="46,30 30,42 40,42" fill="${shade(body2,-10)}"/>
+      <polygon points="54,30 70,42 60,42" fill="${shade(body2,-10)}"/>
+      <polygon points="41,76 30,102 39,98 47,82" fill="${shade(body,-18)}"/>
+      <polygon points="59,76 70,102 61,98 53,82" fill="${shade(body,-18)}"/>
+      <rect x="38" y="78" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <rect x="53" y="78" width="9" height="22" rx="2" fill="${shade(body,-30)}"/>
+      <ellipse cx="42.5" cy="98" rx="4" ry="6.5" fill="url(#ex${id})"/>
+      <ellipse cx="57.5" cy="98" rx="4" ry="6.5" fill="url(#ex${id})"/>
+      <ellipse cx="50" cy="32" rx="6" ry="12.5" fill="url(#gl${id})"/>
+      <line x1="50" y1="6" x2="50" y2="76" stroke="${accent}" stroke-width="1" opacity=".45"/>`;
+  }
+  const detail=`
+    <g opacity=".6">
+      <rect x="45.2" y="10" width="2.4" height="80" rx="1.2" fill="rgba(255,255,255,.5)"/>
+      <line x1="42" y1="34" x2="58" y2="34" stroke="rgba(255,255,255,.2)" stroke-width=".7"/>
+      <line x1="41" y1="52" x2="59" y2="52" stroke="rgba(0,0,0,.22)" stroke-width=".7"/>
+      <line x1="42" y1="70" x2="58" y2="70" stroke="rgba(0,0,0,.2)" stroke-width=".7"/>
+    </g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 112"><g filter="url(#ds${id})">${defs}${shape}${detail}</g></svg>`;
+}
+
+function shade(hex,p){ // осветлить(+)/затемнить(-) цвет
+  const n=parseInt(hex.slice(1),16);
+  let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  r=Math.max(0,Math.min(255,Math.round(r+(p/100)*255)));
+  g=Math.max(0,Math.min(255,Math.round(g+(p/100)*255)));
+  b=Math.max(0,Math.min(255,Math.round(b+(p/100)*255)));
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+/* Каталог самолётов */
+const PLANES = [
+  {key:'su57', name:'Су-57', type:'felon',  body:'#3a4654', body2:'#4d5b6b', glass:'#7fd0ff', accent:'#ff5a3c',
+   speed:4.6, turn:.075, hp:120, fire:120, rockets:8, desc:'Стелс · скорость'},
+  {key:'su35', name:'Су-35', type:'flanker', body:'#5d6b54', body2:'#727f63', glass:'#8fe0ff', accent:'#ffd84d',
+   speed:4.3, turn:.085, hp:130, fire:110, rockets:7, desc:'Манёвр · мощь'},
+  {key:'su27', name:'Су-27', type:'flanker', body:'#4f5c6b', body2:'#637184', glass:'#a7e8ff', accent:'#7fd0ff',
+   speed:4.0, turn:.08,  hp:140, fire:140, rockets:6, desc:'Лёгкая броня'},
+  {key:'su30', name:'Су-30', type:'flanker', body:'#3f5a4a', body2:'#52735d', glass:'#9fe6ff', accent:'#37e0ff',
+   speed:4.1, turn:.082, hp:135, fire:120, rockets:7, desc:'Многоцелевой'},
+  {key:'su75', name:'Су-75', type:'checkmate', body:'#2f3640', body2:'#3c454f', glass:'#9ad8ff', accent:'#ff7a3c',
+   speed:4.9, turn:.09,  hp:100, fire:130, rockets:6, desc:'Лёгкий стелс'},
+  {key:'su34', name:'Су-34', type:'fullback', body:'#4a5b48', body2:'#5d7058', glass:'#bfe8ff', accent:'#ffd84d',
+   speed:3.6, turn:.06,  hp:180, fire:90,  rockets:10,desc:'Бомбардир · броня'},
+  {key:'su24', name:'Су-24', type:'fencer',  body:'#5b5145', body2:'#6e6353', glass:'#cfe6ff', accent:'#ffae3a',
+   speed:3.8, turn:.065, hp:160, fire:100, rockets:9, desc:'Ударный'},
+  {key:'mig29',name:'МиГ-29',type:'fulcrum', body:'#46586a', body2:'#586d82', glass:'#a7e8ff', accent:'#37e0ff',
+   speed:4.5, turn:.092, hp:110, fire:115, rockets:6, desc:'Юркий'},
+  {key:'mig31',name:'МиГ-31',type:'foxhound',body:'#5a5f66', body2:'#6e747c', glass:'#bfe0ff', accent:'#ff5a3c',
+   speed:5.2, turn:.05,  hp:150, fire:100, rockets:8, desc:'Перехватчик'},
+];
+
+/* SVG ракеты и пули */
+const MISSILE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 64">
+  <defs>
+    <linearGradient id="mb" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6f7a86"/><stop offset=".3" stop-color="#dfe6ee"/>
+      <stop offset=".5" stop-color="#ffffff"/><stop offset=".72" stop-color="#c2ccd6"/><stop offset="1" stop-color="#5c6670"/>
+    </linearGradient>
+    <radialGradient id="ms" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#aef0ff"/><stop offset="1" stop-color="#1f8fd0"/></radialGradient>
+  </defs>
+  <polygon points="12,0 18,17 6,17" fill="#ff5a3c" stroke="#b8311f" stroke-width=".6"/>
+  <polygon points="12,1 14,16 10,16" fill="#ff8a6b"/>
+  <rect x="6" y="14" width="12" height="36" rx="5" fill="url(#mb)" stroke="#4a545e" stroke-width=".6"/>
+  <line x1="9" y1="16" x2="9" y2="48" stroke="rgba(255,255,255,.6)" stroke-width=".7"/>
+  <line x1="15.4" y1="16" x2="15.4" y2="48" stroke="rgba(0,0,0,.2)" stroke-width=".7"/>
+  <polygon points="6,40 0,58 6,52" fill="#cc3b2b"/>
+  <polygon points="18,40 24,58 18,52" fill="#cc3b2b"/>
+  <rect x="9" y="50" width="6" height="9" rx="2" fill="#2f343a"/>
+  <circle cx="12" cy="23" r="2.6" fill="url(#ms)"/>
+</svg>`;
+const BULLET_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 22">
+  <defs>
+    <linearGradient id="bb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#fff7c2"/><stop offset="1" stop-color="#ff8a1e"/></linearGradient>
+    <linearGradient id="bc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe98a"/><stop offset=".5" stop-color="#ffd24d"/><stop offset="1" stop-color="#e09a18"/></linearGradient>
+  </defs>
+  <ellipse cx="5" cy="5.5" rx="3.6" ry="6" fill="url(#bb)"/>
+  <rect x="2.2" y="5.5" width="5.6" height="13" rx="2" fill="url(#bc)"/>
+  <rect x="4.2" y="3" width="1.3" height="14" rx=".6" fill="rgba(255,255,255,.7)"/>
+</svg>`;
+
+/* ---------- 2. Загрузка SVG в Image ---------- */
+function svgToImage(svg){
+  const img=new Image();
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  return img;
+}
+const planeImg = {};
+PLANES.forEach(p=>{ planeImg[p.key]=svgToImage(jetSVG({id:p.key,...p})); });
+const missileImg = svgToImage(MISSILE_SVG);
+const bulletImg  = svgToImage(BULLET_SVG);
+
+/* ---------- 3. ЗВУК (WebAudio, без внешних файлов) ---------- */
+const Sound = (()=> {
+  let ctx=null, master=null, on=true, engineOsc=null, engineGain=null;
+  function init(){
+    if(ctx) return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    master=ctx.createGain(); master.gain.value=.5; master.connect(ctx.destination);
+  }
+  function resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); }
+  function tone(freq,dur,type='square',vol=.3,slideTo=null){
+    if(!on||!ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type; o.frequency.value=freq;
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo,ctx.currentTime+dur);
+    g.gain.value=vol; g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);
+    o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function noise(dur,vol=.4,filterFreq=900){
+    if(!on||!ctx) return;
+    const n=Math.floor(ctx.sampleRate*dur), buf=ctx.createBuffer(1,n,ctx.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=filterFreq;
+    const g=ctx.createGain(); g.gain.value=vol; g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+  }
+  return {
+    init, resume,
+    setOn(v){ on=v; if(engineGain) engineGain.gain.value = v?.06:0; },
+    isOn(){ return on; },
+    shoot(){ tone(720,.08,'square',.18,260); },
+    rocket(){ noise(.5,.5,1400); tone(160,.5,'sawtooth',.22,60); },
+    explosion(){ noise(.6,.7,500); tone(90,.5,'sawtooth',.4,40); },
+    hit(){ tone(200,.06,'square',.15,120); },
+    engineStart(){
+      if(!on||!ctx) return;
+      if(engineOsc) return;
+      engineOsc=ctx.createOscillator(); engineGain=ctx.createGain();
+      engineOsc.type='sawtooth'; engineOsc.frequency.value=70;
+      engineGain.gain.value=.06; engineOsc.connect(engineGain); engineGain.connect(master); engineOsc.start();
+    },
+    engineFreq(f){ if(engineOsc) engineOsc.frequency.value=f; },
+    engineStop(){ if(engineOsc){ try{engineOsc.stop();}catch(e){} engineOsc=null; engineGain=null; } }
+  };
+})();
+
+/* ---------- 4. ИГРА ---------- */
+const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
+let W=0,H=0,SCALE=1,DPR=Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  W=window.innerWidth; H=window.innerHeight;
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  // адаптивный масштаб моделей/эффектов под размер экрана
+  SCALE=Math.max(0.7,Math.min(1.3,Math.min(W,H)/760));
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,120));
+resize();
+
+const keys={};
+const mouse={x:W/2,y:0,down:false,active:false};
+window.addEventListener('keydown',e=>{
+  keys[e.key.toLowerCase()]=true;
+  if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+});
+window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+canvas.addEventListener('mousemove',e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.active=true; });
+canvas.addEventListener('mousedown',()=>{ mouse.down=true; Sound.resume(); });
+window.addEventListener('mouseup',()=>{ mouse.down=false; });
+
+/* мобильное управление */
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0
+  || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+const stickVec={x:0,y:0,active:false};
+let boostBtnActive=false;
+function bindBtn(id,onDown,onUp){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart',e=>{ el.classList.add('press'); Sound.resume(); if(onDown)onDown(); e.preventDefault(); },{passive:false});
+  const up=e=>{ el.classList.remove('press'); if(onUp)onUp(); e.preventDefault(); };
+  el.addEventListener('touchend',up); el.addEventListener('touchcancel',up);
+}
+function setupTouch(){
+  // плавающий джойстик: появляется там, где коснулись левой части экрана
+  const zone=document.getElementById('padzone');
+  const pad=document.getElementById('pad'), knob=pad.querySelector('i');
+  let pid=null, cx=0, cy=0;
+  zone.addEventListener('touchstart',e=>{
+    if(pid!==null) return;
+    const t=e.changedTouches[0]; pid=t.identifier; cx=t.clientX; cy=t.clientY;
+    pad.style.left=cx+'px'; pad.style.top=cy+'px'; pad.classList.add('on');
+    knob.style.transform=''; stickVec.active=true; stickVec.x=0; stickVec.y=0;
+    Sound.resume(); e.preventDefault();
+  },{passive:false});
+  zone.addEventListener('touchmove',e=>{
+    for(const t of e.changedTouches){ if(t.identifier===pid){
+      let dx=t.clientX-cx, dy=t.clientY-cy;
+      const m=Math.hypot(dx,dy)||1, maxR=pad.offsetWidth*0.34;
+      const k=Math.min(1,maxR/m);
+      knob.style.transform=`translate(calc(-50% + ${dx*k}px),calc(-50% + ${dy*k}px))`;
+      const norm=Math.min(1,m/maxR);
+      stickVec.x=(dx/m)*norm; stickVec.y=(dy/m)*norm;
+    }}
+    e.preventDefault();
+  },{passive:false});
+  function end(e){ for(const t of e.changedTouches){ if(t.identifier===pid){
+    pid=null; stickVec.x=0; stickVec.y=0; stickVec.active=false; pad.classList.remove('on'); knob.style.transform='';
+  }}}
+  zone.addEventListener('touchend',end); zone.addEventListener('touchcancel',end);
+  bindBtn('fire',()=>{mouse.down=true;},()=>{mouse.down=false;});
+  bindBtn('rocket',()=>{fireRocket();},null);
+  bindBtn('boost',()=>{boostBtnActive=true;},()=>{boostBtnActive=false;});
+}
+
+/* состояние игры */
+let state='menu';
+let player=null, enemies=[], bullets=[], rockets=[], particles=[], clouds=[];
+let score=0, wave=0, spawnTimer=0, selected=PLANES[0];
+
+function rand(a,b){ return a+Math.random()*(b-a); }
+function angTo(ax,ay,bx,by){ return Math.atan2(by-ay,bx-ax); }
+
+/* класс самолёта */
+function makePlane(cfg,x,y,isPlayer){
+  const base=isPlayer?54:46;
+  return {
+    cfg, x, y, vx:0, vy:0, angle:-Math.PI/2,
+    speed:isPlayer?0:cfg.speed*0.6, hp:cfg.hp, maxhp:cfg.hp,
+    cool:0, rocketCool:0, ammo:cfg.rockets, isPlayer,
+    turning:0, boost:100, baseSize:base, size:base*SCALE, invuln:0
+  };
+}
+
+function startGame(){
+  player=makePlane(selected,W/2,H/2,true);
+  player.angle=-Math.PI/2; player.speed=selected.speed*0.55; player.invuln=190;
+  enemies=[]; bullets=[]; rockets=[]; particles=[];
+  score=0; wave=0; spawnTimer=0;
+  document.getElementById('score').textContent='0';
+  document.getElementById('ammo').textContent=player.ammo;
+  clouds=[]; for(let i=0;i<10;i++) clouds.push({x:rand(0,W),y:rand(0,H),r:rand(60,150),s:rand(.1,.4),a:rand(.04,.12)});
+  state='play';
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('topright').classList.remove('hidden');
+  document.getElementById('soundtoggle').classList.remove('hidden');
+  if(isTouch) document.getElementById('mobile').classList.remove('hidden');
+  document.body.classList.add('playing');
+  Sound.init(); Sound.resume(); Sound.engineStart();
+  nextWave();
+}
+
+function nextWave(){
+  wave++;
+  document.getElementById('wave').textContent='Волна '+wave;
+  const count=Math.min(1+wave,7);
+  for(let i=0;i<count;i++){
+    const cfg=PLANES[Math.floor(rand(0,PLANES.length))];
+    const edge=Math.floor(rand(0,4));
+    let x,y;
+    if(edge===0){x=rand(0,W);y=-60;} else if(edge===1){x=W+60;y=rand(0,H);}
+    else if(edge===2){x=rand(0,W);y=H+60;} else {x=-60;y=rand(0,H);}
+    const e=makePlane(cfg,x,y,false);
+    e.hp = Math.round(cfg.hp*0.5 + wave*6); e.maxhp=e.hp;
+    e.ai = rand(0,1)>.5?'chase':'strafe';
+    e.fireT=rand(120,220);
+    enemies.push(e);
+  }
+}
+
+/* стрельба */
+function fireBullet(p){
+  if(p.cool>0) return;
+  p.cool = p.isPlayer?7:p.cfg.fire/6;
+  const sp=12;
+  const off=p.size*0.42;
+  for(const s of [-1,1]){
+    const px=p.x+Math.cos(p.angle)*off - Math.sin(p.angle)*s*p.size*0.28;
+    const py=p.y+Math.sin(p.angle)*off + Math.cos(p.angle)*s*p.size*0.28;
+    bullets.push({x:px,y:py,vx:Math.cos(p.angle)*sp+p.vx,vy:Math.sin(p.angle)*sp+p.vy,
+      angle:p.angle,enemy:!p.isPlayer,life:70});
+  }
+  if(p.isPlayer) Sound.shoot();
+}
+function fireRocket(){
+  if(state!=='play'||!player||player.rocketCool>0||player.ammo<=0) return;
+  player.ammo--; player.rocketCool=22;
+  document.getElementById('ammo').textContent=player.ammo;
+  const off=player.size*0.4;
+  rockets.push({x:player.x+Math.cos(player.angle)*off,y:player.y+Math.sin(player.angle)*off,
+    vx:Math.cos(player.angle)*6+player.vx,vy:Math.sin(player.angle)*6+player.vy,
+    angle:player.angle,speed:6,enemy:false,life:130,target:null});
+  Sound.rocket();
+}
+function enemyRocket(e){
+  rockets.push({x:e.x,y:e.y,vx:Math.cos(e.angle)*5,vy:Math.sin(e.angle)*5,
+    angle:e.angle,speed:5,enemy:true,life:120,target:player});
+  Sound.rocket();
+}
+
+/* частицы */
+function spawnContrail(p,strength){
+  // воздушные следы с законцовок крыла при повороте
+  const back=-p.size*0.3, wing=p.size*0.42;
+  for(const s of [-1,1]){
+    const px=p.x+Math.cos(p.angle)*back - Math.sin(p.angle)*s*wing;
+    const py=p.y+Math.sin(p.angle)*back + Math.cos(p.angle)*s*wing;
+    particles.push({x:px,y:py,vx:p.vx*-0.05+rand(-.3,.3),vy:p.vy*-0.05+rand(-.3,.3),
+      life:rand(14,26),max:26,r:rand(2,4),type:'vapor',a:strength});
+  }
+}
+function spawnExhaust(p){
+  const back=-p.size*0.46;
+  const px=p.x+Math.cos(p.angle)*back, py=p.y+Math.sin(p.angle)*back;
+  particles.push({x:px+rand(-2,2),y:py+rand(-2,2),vx:Math.cos(p.angle)*-1+rand(-.4,.4),vy:Math.sin(p.angle)*-1+rand(-.4,.4),
+    life:rand(8,16),max:16,r:rand(2,5),type:'fire'});
+}
+function spawnSmoke(x,y){
+  particles.push({x,y,vx:rand(-.5,.5),vy:rand(-.5,.5),life:rand(20,40),max:40,r:rand(4,9),type:'smoke'});
+}
+function spawnFire(x,y){
+  particles.push({x,y,vx:rand(-1,1),vy:rand(-1,1),life:rand(8,16),max:16,r:rand(3,7),type:'fire'});
+}
+function explode(x,y,big){
+  const n=big?40:18;
+  for(let i=0;i<n;i++){
+    const a=rand(0,Math.PI*2), sp=rand(1,big?7:4);
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rand(16,40),max:40,
+      r:rand(3,big?10:6),type:Math.random()>.5?'fire':'smoke'});
+  }
+  Sound.explosion();
+}
+
+/* обновление */
+function update(){
+  if(state!=='play') return;
+  // ----- игрок -----
+  const p=player;
+  p.size=p.baseSize*SCALE;
+  let turnInput=0, thrust=0, boosting=false;
+
+  if(mouse.active && !stickVec.active){
+    // поворот к курсору
+    let desired=angTo(p.x,p.y,mouse.x,mouse.y);
+    let diff=((desired-p.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+    turnInput=Math.max(-1,Math.min(1,diff*3));
+    thrust=0.6;
+  }
+  if(keys['a']||keys['arrowleft']) turnInput=-1;
+  if(keys['d']||keys['arrowright']) turnInput=1;
+  if(keys['w']||keys['arrowup']) thrust=1;
+  if(keys['s']||keys['arrowdown']) thrust=-0.6;
+  if(keys['shift']||boostBtnActive) boosting=true;
+  if(stickVec.active){
+    let desired=Math.atan2(stickVec.y,stickVec.x);
+    let diff=((desired-p.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+    turnInput=Math.max(-1,Math.min(1,diff*3));
+    thrust=Math.min(1,Math.hypot(stickVec.x,stickVec.y)*1.3);
+  }
+  if((keys[' ']||mouse.down)) fireBullet(p);
+  if(keys['f']) fireRocket();
+
+  // форсаж
+  if(boosting && p.boost>0){ p.boost-=1.4; } else { p.boost=Math.min(100,p.boost+0.4); boosting=false; }
+  const maxSp=p.cfg.speed*(boosting?1.7:1);
+  p.turning = turnInput;
+  p.angle += turnInput*p.cfg.turn;
+  // тяга
+  if(thrust>0) p.speed += 0.12*thrust; else if(thrust<0) p.speed-=0.14; else p.speed-=0.02;
+  p.speed=Math.max(1.2,Math.min(maxSp,p.speed));
+  p.vx=Math.cos(p.angle)*p.speed; p.vy=Math.sin(p.angle)*p.speed;
+  p.x+=p.vx; p.y+=p.vy;
+  // края — заворачиваем мягко
+  const m=40;
+  if(p.x<m){p.x=m;} if(p.x>W-m){p.x=W-m;}
+  if(p.y<m){p.y=m;} if(p.y>H-m){p.y=H-m;}
+  if(p.cool>0)p.cool--; if(p.rocketCool>0)p.rocketCool--; if(p.invuln>0)p.invuln--;
+
+  // эффекты двигателя/поворота
+  spawnExhaust(p);
+  if(boosting) spawnExhaust(p);
+  if(Math.abs(turnInput)>0.35) spawnContrail(p, Math.min(1,Math.abs(turnInput)));
+  Sound.engineFreq(60 + p.speed*14 + (boosting?40:0));
+
+  // обновление HUD
+  document.getElementById('hpfill').style.width=Math.max(0,p.hp/p.maxhp*100)+'%';
+  document.getElementById('boostfill').style.width=p.boost+'%';
+
+  // ----- враги -----
+  for(const e of enemies){
+    e.size=e.baseSize*SCALE;
+    const desired=angTo(e.x,e.y,p.x,p.y);
+    let diff=((desired-e.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+    let ti=Math.max(-1,Math.min(1,diff*2));
+    if(e.ai==='strafe'){ ti += Math.sin(Date.now()/600+e.x)*0.4; }
+    e.turning=ti; e.angle+=ti*e.cfg.turn;
+    const dist=Math.hypot(p.x-e.x,p.y-e.y);
+    e.speed = dist>260? Math.min(e.cfg.speed, e.speed+0.05) : Math.max(1.8,e.speed-0.05);
+    e.vx=Math.cos(e.angle)*e.speed; e.vy=Math.sin(e.angle)*e.speed;
+    e.x+=e.vx; e.y+=e.vy;
+    // держим в зоне
+    if(e.x<-80)e.x=W+60; if(e.x>W+80)e.x=-60; if(e.y<-80)e.y=H+60; if(e.y>H+80)e.y=-60;
+    spawnExhaust(e);
+    if(Math.abs(ti)>0.4) spawnContrail(e,Math.min(1,Math.abs(ti)));
+    // огонь
+    e.fireT--;
+    if(e.fireT<=0 && Math.abs(diff)<0.3 && dist<440){
+      if(Math.random()<0.1 && dist<380){ enemyRocket(e); e.fireT=rand(240,360); }
+      else { fireBullet(e); e.fireT=rand(44,84); }
+    }
+    if(e.cool>0)e.cool--;
+  }
+
+  // ----- пули -----
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i]; b.x+=b.vx; b.y+=b.vy; b.life--;
+    if(b.life<=0||b.x<-20||b.x>W+20||b.y<-20||b.y>H+20){ bullets.splice(i,1); continue; }
+    if(b.enemy){
+      if(Math.hypot(b.x-p.x,b.y-p.y)<p.size*0.42){ damage(p,4); spawnFire(b.x,b.y); bullets.splice(i,1); continue; }
+    } else {
+      for(const e of enemies){
+        if(Math.hypot(b.x-e.x,b.y-e.y)<e.size*0.42){ damage(e,12); spawnFire(b.x,b.y); Sound.hit(); bullets.splice(i,1); break; }
+      }
+    }
+  }
+
+  // ----- ракеты -----
+  for(let i=rockets.length-1;i>=0;i--){
+    const r=rockets[i];
+    // самонаведение
+    let tgt=r.enemy?p:nearestEnemy(r.x,r.y);
+    if(tgt){
+      const da=angTo(r.x,r.y,tgt.x,tgt.y);
+      let diff=((da-r.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+      r.angle+=Math.max(-0.08,Math.min(0.08,diff));
+    }
+    r.speed=Math.min(11,r.speed+0.18);
+    r.vx=Math.cos(r.angle)*r.speed; r.vy=Math.sin(r.angle)*r.speed;
+    r.x+=r.vx; r.y+=r.vy; r.life--;
+    // дым + огонь за ракетой
+    const bx=r.x-Math.cos(r.angle)*16, by=r.y-Math.sin(r.angle)*16;
+    spawnFire(bx,by); spawnSmoke(bx-Math.cos(r.angle)*4,by-Math.sin(r.angle)*4);
+    let dead=r.life<=0||r.x<-40||r.x>W+40||r.y<-40||r.y>H+40;
+    if(!dead){
+      if(r.enemy){ if(Math.hypot(r.x-p.x,r.y-p.y)<p.size*0.5){ damage(p,22); explode(r.x,r.y,true); dead=true; } }
+      else { for(const e of enemies){ if(Math.hypot(r.x-e.x,r.y-e.y)<e.size*0.5){ damage(e,55); explode(r.x,r.y,true); dead=true; break; } } }
+    }
+    if(dead) rockets.splice(i,1);
+  }
+
+  // ----- столкновения самолётов -----
+  for(const e of enemies){
+    if(Math.hypot(e.x-p.x,e.y-p.y)<(e.size+p.size)*0.32){ damage(e,40); damage(p,10); explode((e.x+p.x)/2,(e.y+p.y)/2,false); }
+  }
+
+  // ----- частицы -----
+  for(let i=particles.length-1;i>=0;i--){
+    const q=particles[i]; q.x+=q.vx; q.y+=q.vy; q.life--;
+    if(q.type==='smoke'){ q.vx*=0.96; q.vy*=0.96; q.r+=0.25; }
+    if(q.type==='fire'){ q.r*=0.96; }
+    if(q.life<=0) particles.splice(i,1);
+  }
+
+  // удаление сбитых врагов
+  for(let i=enemies.length-1;i>=0;i--){
+    if(enemies[i].hp<=0){ explode(enemies[i].x,enemies[i].y,true); enemies.splice(i,1); score+=100; document.getElementById('score').textContent=score; }
+  }
+  if(enemies.length===0){ spawnTimer++; if(spawnTimer>60){ spawnTimer=0; nextWave(); } }
+
+  // облака (параллакс)
+  for(const c of clouds){ c.x-=c.s; if(c.x<-c.r) { c.x=W+c.r; c.y=rand(0,H);} }
+
+  if(p.hp<=0) gameOver();
+}
+
+function nearestEnemy(x,y){
+  let best=null,bd=1e9;
+  for(const e of enemies){ const d=Math.hypot(e.x-x,e.y-y); if(d<bd){bd=d;best=e;} }
+  return best;
+}
+function damage(t,amt){ if(t.isPlayer && t.invuln>0) return; t.hp-=amt; t.hitFlash=6; }
+
+function gameOver(){
+  state='over';
+  Sound.engineStop();
+  document.getElementById('goText').textContent='Счёт: '+score+' · Волна '+wave;
+  document.getElementById('gameover').classList.remove('hidden');
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('topright').classList.add('hidden');
+  document.getElementById('mobile').classList.add('hidden');
+  document.body.classList.remove('playing');
+  boostBtnActive=false; mouse.down=false; stickVec.active=false; stickVec.x=0; stickVec.y=0;
+}
+
+/* ---------- 5. РЕНДЕР ---------- */
+function draw(){
+  // фон-небо
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#071a33'); g.addColorStop(.45,'#0d4a78'); g.addColorStop(.8,'#1d7ea8'); g.addColorStop(1,'#3aa6c4');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // солнечный блик в небе
+  const sx=W*0.78, sy=H*0.16, R=Math.max(W,H)*0.55;
+  const sun=ctx.createRadialGradient(sx,sy,0,sx,sy,R);
+  sun.addColorStop(0,'rgba(255,247,214,.5)'); sun.addColorStop(.22,'rgba(255,232,170,.14)'); sun.addColorStop(1,'rgba(255,232,170,0)');
+  ctx.fillStyle=sun; ctx.fillRect(0,0,W,H);
+  // облака (мягкие, с подсветкой сверху)
+  for(const c of clouds){
+    const cg=ctx.createRadialGradient(c.x,c.y-c.r*0.3,c.r*0.2,c.x,c.y,c.r*1.4);
+    cg.addColorStop(0,'rgba(255,255,255,'+Math.min(.9,c.a*4)+')'); cg.addColorStop(1,'rgba(220,235,255,0)');
+    ctx.fillStyle=cg;
+    ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,7); ctx.arc(c.x+c.r*.6,c.y+c.r*.2,c.r*.7,0,7); ctx.arc(c.x-c.r*.5,c.y+c.r*.15,c.r*.6,0,7); ctx.fill();
+  }
+
+  // частицы (под самолётами)
+  for(const q of particles){
+    const t=q.life/q.max;
+    if(q.type==='vapor'){ ctx.fillStyle='rgba(235,245,255,'+(t*0.5*(q.a||1))+')'; }
+    else if(q.type==='smoke'){ ctx.fillStyle='rgba(120,120,130,'+(t*0.5)+')'; }
+    else { // fire
+      ctx.fillStyle='rgba('+Math.round(255)+','+Math.round(120+t*120)+','+Math.round(40*t)+','+(t*0.9)+')';
+    }
+    ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,7); ctx.fill();
+  }
+
+  if(state==='play'||state==='over'){
+    // ракеты
+    for(const r of rockets) drawSprite(missileImg,r.x,r.y,r.angle+Math.PI/2,24*SCALE,9*SCALE);
+    // пули
+    for(const b of bullets) drawSprite(bulletImg,b.x,b.y,b.angle+Math.PI/2,8*SCALE,18*SCALE);
+    // враги
+    for(const e of enemies){ drawPlane(e); drawBar(e); }
+    // игрок
+    if(player) drawPlane(player);
+  }
+
+  // виньетка для объёма
+  const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.42,W/2,H/2,Math.max(W,H)*0.78);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,4,12,.34)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+}
+
+function drawSprite(img,x,y,angle,w,h){
+  if(!img.complete||!img.naturalWidth){ return; }
+  ctx.save(); ctx.translate(x,y); ctx.rotate(angle); ctx.drawImage(img,-w/2,-h/2,w,h); ctx.restore();
+}
+function drawPlane(p){
+  const img=planeImg[p.cfg.key];
+  const w=p.size, h=p.size*1.12;
+  ctx.save();
+  ctx.translate(p.x,p.y);
+  ctx.rotate(p.angle+Math.PI/2); // SVG нос вверх -> поворот к курсу
+  // тень
+  ctx.globalAlpha=0.25; ctx.drawImage(img? img:planeImg.su57,-w/2+5,-h/2+7,w,h); ctx.globalAlpha=1;
+  if(img&&img.complete&&img.naturalWidth) ctx.drawImage(img,-w/2,-h/2,w,h);
+  if(p.hitFlash>0){ p.hitFlash--; ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,80,40,0.5)';
+    ctx.beginPath(); ctx.ellipse(0,0,w*0.4,h*0.4,0,0,7); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
+  ctx.restore();
+  if(p.isPlayer){ // метка игрока
+    ctx.strokeStyle='rgba(120,230,255,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(p.x,p.y,w*0.62,0,7); ctx.stroke();
+  }
+}
+function drawBar(e){
+  const w=40*SCALE,x=e.x-w/2,y=e.y-e.size*0.72;
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x,y,w,5);
+  ctx.fillStyle=e.hp/e.maxhp>.4?'#7affd8':'#ff7a4d'; ctx.fillRect(x,y,w*Math.max(0,e.hp/e.maxhp),5);
+}
+
+/* ---------- 6. ЦИКЛ ---------- */
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+
+/* ---------- 7. МЕНЮ / UI ---------- */
+function buildMenu(){
+  const list=document.getElementById('planeList');
+  PLANES.forEach((p,i)=>{
+    const card=document.createElement('div'); card.className='pcard'+(i===0?' sel':'');
+    card.innerHTML=jetSVG({id:'m'+p.key,...p})+
+      `<div class="pname">${p.name}</div>
+       <div class="pstat">${p.desc}<br>❤${p.hp} ⚡${p.speed} 🚀${p.rockets}</div>`;
+    card.onclick=()=>{ selected=p; document.querySelectorAll('.pcard').forEach(c=>c.classList.remove('sel')); card.classList.add('sel'); };
+    list.appendChild(card);
+  });
+}
+buildMenu();
+if(isTouch){ document.body.classList.add('touch'); setupTouch(); }
+
+document.getElementById('startBtn').onclick=()=>{ Sound.init(); Sound.resume(); startGame(); };
+document.getElementById('againBtn').onclick=()=>{ startGame(); };
+const stb=document.getElementById('soundtoggle');
+stb.onclick=()=>{ const v=!Sound.isOn(); Sound.setOn(v); stb.textContent='🔊 Звук: '+(v?'вкл':'выкл'); };
+</script>
+</body>
+</html>
