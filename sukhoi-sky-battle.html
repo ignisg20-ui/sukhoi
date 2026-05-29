@@ -159,7 +159,39 @@
 /* Каждая модель — функция, возвращающая SVG разметку. Цветовые схемы и
    формы уникальны для каждого самолёта. */
 
-function jetSVG({id, body, body2, glass, accent, type}){
+/* камуфляжные текстуры (узор заливки фюзеляжа/крыльев) */
+function camoDefs(id, scheme, b, b2){
+  const c1=b, c2=shade(b,-15), c3=shade(b2,8), c4=shade(b,-32), c5=shade(b2,-22);
+  if(scheme==='digital'){
+    const px=(x,y,w,h,c)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
+    return `<pattern id="camo${id}" patternUnits="userSpaceOnUse" width="16" height="16">
+      <rect width="16" height="16" fill="${c1}"/>
+      ${px(0,0,4,4,c3)}${px(8,2,6,4,c2)}${px(4,8,4,6,c4)}${px(11,9,5,5,c3)}${px(2,12,4,4,c2)}
+      ${px(6,0,2,2,c5)}${px(14,5,2,3,c4)}${px(0,6,2,2,c5)}${px(9,14,3,2,c2)}${px(13,0,3,2,c4)}${px(6,5,2,2,c5)}
+    </pattern>`;
+  }
+  if(scheme==='woodland'){
+    return `<pattern id="camo${id}" patternUnits="userSpaceOnUse" width="36" height="36">
+      <rect width="36" height="36" fill="${c1}"/>
+      <path d="M2,6 q6,-6 12,-2 q6,4 2,10 q-6,5 -12,1 q-4,-5 -2,-9z" fill="${c4}"/>
+      <path d="M22,1 q9,0 11,8 q1,7 -7,9 q-8,1 -9,-7 q-1,-8 5,-10z" fill="${c2}"/>
+      <path d="M5,22 q7,-3 11,3 q3,7 -4,10 q-8,2 -10,-5 q-1,-6 3,-8z" fill="${c3}"/>
+      <path d="M24,23 q8,-2 10,5 q1,7 -6,8 q-7,1 -8,-6 q-1,-6 4,-7z" fill="${c4}"/>
+    </pattern>`;
+  }
+  // splinter (угловатый)
+  return `<pattern id="camo${id}" patternUnits="userSpaceOnUse" width="34" height="34">
+    <rect width="34" height="34" fill="${c1}"/>
+    <polygon points="0,0 16,4 8,16 0,12" fill="${c2}"/>
+    <polygon points="20,0 34,0 34,12 22,10" fill="${c4}"/>
+    <polygon points="10,18 26,14 30,26 14,30" fill="${c3}"/>
+    <polygon points="0,20 8,18 10,30 0,34" fill="${c4}"/>
+    <polygon points="28,17 34,16 34,34 25,30" fill="${c2}"/>
+    <polygon points="14,2 22,9 16,14 10,9" fill="${c5}"/>
+  </pattern>`;
+}
+
+function jetSVG({id, body, body2, glass, accent, type, camo}){
   // type: 'flanker' (Су-27/35/30), 'felon'(Су-57), 'fencer'(Су-24),
   //       'checkmate'(Су-75), 'fullback'(Су-34), 'fulcrum'(МиГ-29), 'foxhound'(МиГ-31)
   const defs = `
@@ -197,6 +229,7 @@ function jetSVG({id, body, body2, glass, accent, type}){
       <filter id="ds${id}" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="0" stdDeviation="1.1" flood-color="${shade(body,-70)}" flood-opacity=".7"/>
       </filter>
+      ${camoDefs(id, camo||'splinter', body, body2)}
     </defs>`;
   let shape='';
   if(type==='felon'){ // Су-57 — угловатый стелс, два киля, два двигателя
@@ -300,6 +333,9 @@ function jetSVG({id, body, body2, glass, accent, type}){
       <line x1="41" y1="52" x2="59" y2="52" stroke="rgba(0,0,0,.22)" stroke-width=".7"/>
       <line x1="42" y1="70" x2="58" y2="70" stroke="rgba(0,0,0,.2)" stroke-width=".7"/>
     </g>`;
+  // фюзеляж и крылья красим камуфляжем (узор автоматически обрезается формой полигонов)
+  shape = shape.split('url(#bd2'+id+')').join('url(#camo'+id+')')
+               .split('url(#bd'+id+')').join('url(#camo'+id+')');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 112"><g filter="url(#ds${id})">${defs}${shape}${detail}</g></svg>`;
 }
 
@@ -314,23 +350,23 @@ function shade(hex,p){ // осветлить(+)/затемнить(-) цвет
 
 /* Каталог самолётов */
 const PLANES = [
-  {key:'su57', name:'Су-57', type:'felon',  body:'#3a4654', body2:'#4d5b6b', glass:'#7fd0ff', accent:'#ff5a3c',
+  {key:'su57', name:'Су-57', type:'felon',  body:'#3a4654', body2:'#4d5b6b', glass:'#7fd0ff', accent:'#9fd6ff', camo:'splinter',
    speed:4.6, turn:.075, hp:120, fire:120, rockets:8, desc:'Стелс · скорость'},
-  {key:'su35', name:'Су-35', type:'flanker', body:'#5d6b54', body2:'#727f63', glass:'#8fe0ff', accent:'#ffd84d',
+  {key:'su35', name:'Су-35', type:'flanker', body:'#5d6b54', body2:'#7a6b4a', glass:'#8fe0ff', accent:'#ffd84d', camo:'woodland',
    speed:4.3, turn:.085, hp:130, fire:110, rockets:7, desc:'Манёвр · мощь'},
-  {key:'su27', name:'Су-27', type:'flanker', body:'#4f5c6b', body2:'#637184', glass:'#a7e8ff', accent:'#7fd0ff',
+  {key:'su27', name:'Су-27', type:'flanker', body:'#3f6488', body2:'#a9c8de', glass:'#a7e8ff', accent:'#cfeaff', camo:'digital',
    speed:4.0, turn:.08,  hp:140, fire:140, rockets:6, desc:'Лёгкая броня'},
-  {key:'su30', name:'Су-30', type:'flanker', body:'#3f5a4a', body2:'#52735d', glass:'#9fe6ff', accent:'#37e0ff',
+  {key:'su30', name:'Су-30', type:'flanker', body:'#3f5a72', body2:'#6f93ad', glass:'#9fe6ff', accent:'#9fe6ff', camo:'digital',
    speed:4.1, turn:.082, hp:135, fire:120, rockets:7, desc:'Многоцелевой'},
-  {key:'su75', name:'Су-75', type:'checkmate', body:'#2f3640', body2:'#3c454f', glass:'#9ad8ff', accent:'#ff7a3c',
+  {key:'su75', name:'Су-75', type:'checkmate', body:'#2f3640', body2:'#3c454f', glass:'#9ad8ff', accent:'#9ad8ff', camo:'splinter',
    speed:4.9, turn:.09,  hp:100, fire:130, rockets:6, desc:'Лёгкий стелс'},
-  {key:'su34', name:'Су-34', type:'fullback', body:'#4a5b48', body2:'#5d7058', glass:'#bfe8ff', accent:'#ffd84d',
+  {key:'su34', name:'Су-34', type:'fullback', body:'#46566a', body2:'#6b7d92', glass:'#bfe8ff', accent:'#bfe8ff', camo:'splinter',
    speed:3.6, turn:.06,  hp:180, fire:90,  rockets:10,desc:'Бомбардир · броня'},
-  {key:'su24', name:'Су-24', type:'fencer',  body:'#5b5145', body2:'#6e6353', glass:'#cfe6ff', accent:'#ffae3a',
+  {key:'su24', name:'Су-24', type:'fencer',  body:'#5b5e42', body2:'#766b48', glass:'#cfe6ff', accent:'#ffae3a', camo:'woodland',
    speed:3.8, turn:.065, hp:160, fire:100, rockets:9, desc:'Ударный'},
-  {key:'mig29',name:'МиГ-29',type:'fulcrum', body:'#46586a', body2:'#586d82', glass:'#a7e8ff', accent:'#37e0ff',
+  {key:'mig29',name:'МиГ-29',type:'fulcrum', body:'#46586a', body2:'#7d90a4', glass:'#a7e8ff', accent:'#bfe6ff', camo:'digital',
    speed:4.5, turn:.092, hp:110, fire:115, rockets:6, desc:'Юркий'},
-  {key:'mig31',name:'МиГ-31',type:'foxhound',body:'#5a5f66', body2:'#6e747c', glass:'#bfe0ff', accent:'#ff5a3c',
+  {key:'mig31',name:'МиГ-31',type:'foxhound',body:'#5a5f66', body2:'#787e86', glass:'#bfe0ff', accent:'#cfe0ff', camo:'splinter',
    speed:5.2, turn:.05,  hp:150, fire:100, rockets:8, desc:'Перехватчик'},
 ];
 
@@ -430,6 +466,8 @@ const Sound = (()=> {
     explosion(big){ if(!on||!ctx)return; const v=big?.8:.5,d=big?.9:.55;
       burst(d,v,big?1400:1000,90,'lowpass',.5); tone(big?80:110,d,'sine',big?.5:.32,32); tone(big?120:150,.18,'triangle',.18,50); },
     hit(){ if(!on||!ctx)return; tone(2100,.05,'square',.1,700); burst(.04,.08,3000,800,'bandpass',2); },
+    // ТЕПЛОВЫЕ ЛОВУШКИ — хлопок отстрела и шипение
+    flare(){ if(!on||!ctx)return; burst(.22,.16,2600,500,'bandpass',.8); tone(820,.07,'square',.05,1500); },
     // ЗАХВАТ ЦЕЛИ — короткий «пик» поиска и протяжный тон при захвате
     lockSeek(){ tone(1250,.05,'square',.07); },
     lockOn(){ if(!on||!ctx)return; tone(1700,.16,'sine',.12); tone(2100,.16,'sine',.08); },
@@ -566,7 +604,7 @@ function makePlane(cfg,x,y,isPlayer){
     cool:0, rocketCool:0, ammo:cfg.rockets, isPlayer,
     turning:0, boost:100, baseSize:base, size:base*SCALE, invuln:0,
     target:null, retargetT:0, fireT:rand(40,120), rocketT:rand(200,400),
-    wander:rand(-1,1), wanderT:0, lastAttacker:null, hitFlash:0, smokeT:0
+    wander:rand(-1,1), wanderT:0, lastAttacker:null, hitFlash:0, smokeT:0, flareCool:0
   };
 }
 
@@ -658,13 +696,26 @@ function fireRocket(){
   const tgt=(lock.locked&&lock.target&&lock.target.hp>0)?lock.target:nearestEnemyInFront();
   rockets.push({x:player.x+Math.cos(player.angle)*off,y:player.y+Math.sin(player.angle)*off,
     vx:Math.cos(player.angle)*6+player.vx,vy:Math.sin(player.angle)*6+player.vy,
-    angle:player.angle,speed:6,owner:player,dmg:55,life:150,target:tgt});
+    angle:player.angle,speed:6,owner:player,dmg:55,life:150,target:tgt,noLock:0});
   Sound.rocket();
 }
 function enemyRocket(e){
   rockets.push({x:e.x,y:e.y,vx:Math.cos(e.angle)*5,vy:Math.sin(e.angle)*5,
-    angle:e.angle,speed:5,owner:e,dmg:30,life:140,target:e.target});
+    angle:e.angle,speed:5,owner:e,dmg:30,life:140,target:e.target,noLock:0});
   if(onScreen(e.x,e.y,220)) Sound.rocket();
+}
+/* тепловые ловушки: цель отстреливает их, когда рядом летит ракета */
+function deployFlares(p){
+  p.flareCool=70;
+  const back=-p.size*0.34;
+  const bx=p.x+Math.cos(p.angle)*back, by=p.y+Math.sin(p.angle)*back;
+  for(let i=0;i<7;i++){
+    const a=p.angle+Math.PI+rand(-1.0,1.0), sp=rand(1.4,3.6);
+    particles.push({type:'flare',x:bx+rand(-2,2),y:by+rand(-2,2),
+      vx:Math.cos(a)*sp+p.vx*0.25, vy:Math.sin(a)*sp+p.vy*0.25,
+      life:rand(36,56),max:56,r:rand(2.4,3.8),sm:0});
+  }
+  if(onScreen(p.x,p.y,260)) Sound.flare();
 }
 
 /* ---------- частицы ---------- */
@@ -748,7 +799,7 @@ function update(){
   p.speed=Math.max(1.2,Math.min(maxSp,p.speed));
   p.vx=Math.cos(p.angle)*p.speed; p.vy=Math.sin(p.angle)*p.speed;
   p.x+=p.vx; p.y+=p.vy;                       // бесконечно — без ограничений
-  if(p.cool>0)p.cool--; if(p.rocketCool>0)p.rocketCool--; if(p.invuln>0)p.invuln--;
+  if(p.cool>0)p.cool--; if(p.rocketCool>0)p.rocketCool--; if(p.invuln>0)p.invuln--; if(p.flareCool>0)p.flareCool--;
 
   spawnExhaust(p); if(boosting) spawnExhaust(p);
   if(Math.abs(turnInput)>0.35) spawnContrail(p,Math.min(1,Math.abs(turnInput)));
@@ -819,7 +870,7 @@ function update(){
         else { fireBullet(e); e.fireT=rand(40,80); }
       }
     }
-    if(e.cool>0)e.cool--;
+    if(e.cool>0)e.cool--; if(e.flareCool>0)e.flareCool--;
   }
 
   // ----- пули (универсальные владельцы) -----
@@ -839,8 +890,14 @@ function update(){
   // ----- ракеты (самонаведение) -----
   for(let i=rockets.length-1;i>=0;i--){
     const r=rockets[i];
-    if(!r.target || r.target.hp<=0){ r.target = (r.owner===player)? nearestEnemy(r.x,r.y) : nearestPlaneExcept(r.x,r.y,r.owner); }
-    if(r.target){ const da=angTo(r.x,r.y,r.target.x,r.target.y); const diff=angDiff(r.angle,da); r.angle+=Math.max(-0.08,Math.min(0.08,diff)); }
+    if(r.noLock>0) r.noLock--;
+    // цель отстреливает ловушки, когда ракета подходит близко — есть шанс сбить наведение
+    if(r.target && r.target.hp>0 && r.target.flareCool<=0){
+      const dd=Math.hypot(r.target.x-r.x, r.target.y-r.y);
+      if(dd<205){ deployFlares(r.target); if(Math.random()<0.7){ r.target=null; r.noLock=rand(48,86); } }
+    }
+    if(r.noLock<=0 && (!r.target || r.target.hp<=0)){ r.target = (r.owner===player)? nearestEnemy(r.x,r.y) : nearestPlaneExcept(r.x,r.y,r.owner); }
+    if(r.target && r.noLock<=0){ const da=angTo(r.x,r.y,r.target.x,r.target.y); const diff=angDiff(r.angle,da); r.angle+=Math.max(-0.08,Math.min(0.08,diff)); }
     r.speed=Math.min(12,r.speed+0.18);
     r.vx=Math.cos(r.angle)*r.speed; r.vy=Math.sin(r.angle)*r.speed;
     r.x+=r.vx; r.y+=r.vy; r.life--;
@@ -870,6 +927,8 @@ function update(){
   for(let i=particles.length-1;i>=0;i--){
     const q=particles[i]; q.x+=q.vx; q.y+=q.vy; q.life--;
     if(q.type==='smoke'){ q.vx*=0.96; q.vy*=0.96; q.r+=0.25; }
+    else if(q.type==='flare'){ q.vx*=0.92; q.vy*=0.92; q.vy+=0.02; q.sm--;
+      if(q.sm<=0){ particles.push({type:'smoke',x:q.x,y:q.y,vx:rand(-.2,.2),vy:rand(-.3,0),life:rand(8,16),max:16,r:rand(1.4,2.8)}); q.sm=4; } }
     else if(q.type==='fire'){ q.r*=0.96; }
     else if(q.type==='debris'){ q.vx*=0.985; q.vy*=0.985; q.rot+=q.vr; q.scale=Math.max(0,q.life/q.max); }
     if(q.life<=0) particles.splice(i,1);
@@ -1048,6 +1107,16 @@ function drawClouds(){
 }
 function drawParticle(q){
   const t=q.life/q.max;
+  if(q.type==='flare'){
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const R=q.r*4, g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,R);
+    g.addColorStop(0,'rgba(255,255,235,'+t+')');
+    g.addColorStop(.4,'rgba(255,190,80,'+(t*0.8)+')');
+    g.addColorStop(1,'rgba(255,120,30,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(q.x,q.y,R,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,'+t+')'; ctx.beginPath(); ctx.arc(q.x,q.y,q.r*0.7,0,7); ctx.fill();
+    ctx.restore(); return;
+  }
   if(q.type==='vapor') ctx.fillStyle='rgba(235,245,255,'+(t*0.5*(q.a||1))+')';
   else if(q.type==='smoke') ctx.fillStyle='rgba(58,60,68,'+(t*0.55)+')';
   else ctx.fillStyle='rgba(255,'+Math.round(120+t*120)+','+Math.round(40*t)+','+(t*0.9)+')';
